@@ -1,0 +1,26 @@
+# =============================================================================
+# docs — .gitignore
+# Documentation repo. Minimal ignores needed.
+# =============================================================================
+
+# --- Generated PDFs (if docs are ever exported) ---
+# We version the source .md files, not the compiled output
+*.pdf
+
+# --- OS artifacts ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Temporary files ---
+*.tmp
+*.bak
+*.orig
