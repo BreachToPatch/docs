@@ -27,7 +27,7 @@ docs/
 │
 └── templates/
     ├── writeup_attack.md        ← Template for Red Team writeups
-    ├── writeup_remediation.md   ← Template for Blue Team patch writeups
+    ├── writeup_patch.md   ← Template for Blue Team patch writeups
     └── exploit_script.py        ← Template for exploit scripts (with correct exit codes)
 ```
 
@@ -87,7 +87,7 @@ The standard template all Red Teamers must use for their writeup PR. Includes se
 - Exploitation walkthrough
 - Proof (flag hash verification)
 
-### [writeup_remediation.md](templates/writeup_remediation.md)
+### [writeup_patch.md](templates/writeup_patch.md)
 The standard template for Blue Team patch writeups. Includes:
 - Root cause analysis
 - What was changed and why
