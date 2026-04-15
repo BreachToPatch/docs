@@ -56,8 +56,8 @@ Examples:
 
 | Folder | Meaning |
 |--------|---------|
-| `vuln-apache-path-traversal-v1.0` | Bee-Path, original version (revealed after first pwn) |
-| `vuln-apache-path-traversal-v1.1` | Bee-Path after first patch (revealed after second pwn) |
+| `vuln-apache-path-traversal-v1` | Bee-Path, original version (revealed after first pwn) |
+| `vuln-apache-path-traversal-v2` | Bee-Path after first patch (revealed after second pwn) |
 
 Browse the archive: https://github.com/BreachToPatch/machines-archive
 
@@ -320,7 +320,7 @@ Security test (private CI — invisible to players):
 
 - Your username appears in `leaderboard.json` (auto-updated within seconds).
 - The machine is **automatically tagged** with the next version
-  (e.g. `vuln-apache-path-traversal/v1.1`) by the CI.
+  (e.g. `vuln-apache-path-traversal/v2`) by the CI.
 - A new image is built on the private `btop-sources` side, and the machine
   resets to **Red Team Active** for the next cycle.
 - Your patch writeup remains in

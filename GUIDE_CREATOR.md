@@ -70,9 +70,9 @@ The reference machine `bee-path/` in `btop-sources/machines-sources` is the cano
 | Public slug | `vuln-{technology}-{vuln-type}` | `vuln-apache-path-traversal` |
 | Private folder | `{internal-name}/` | `bee-path/` |
 | Public folder | `{public-slug}/` | `vuln-apache-path-traversal/` |
-| Archive folder | `{public-slug}-v{version}/` | `vuln-apache-path-traversal-v1.0/` |
+| Archive folder | `{public-slug}-v{version}/` | `vuln-apache-path-traversal-v1/` |
 | CI image | `ghcr.io/btop-sources/{internal-name}-ci:latest` | `ghcr.io/btop-sources/bee-path-ci:latest` |
-| Version tag | `{public-slug}/v{N}.{M}` | `vuln-apache-path-traversal/v1.0` |
+| Version tag | `{public-slug}/v{N}.{M}` | `vuln-apache-path-traversal/v1` |
 
 ---
 
@@ -366,10 +366,10 @@ Before opening your PR on `btop-sources/machines-sources`:
   `machines-public/{public-slug}/exploit/exploit.py`.
 - **Sources revealed**: a maintainer copies the sanitized source code (flag
   stripped) from `machines-sources/{machine-name}/` to
-  `machines-archive/{public-slug}-v1.0/`.
+  `machines-archive/{public-slug}-v1/`.
 - **Blue Team phase opens**: defenders fork the archive and propose patches.
 - **Patches accepted**: each merge bumps the version
-  (`{public-slug}/v1.1`, `v1.2`, ...) and triggers a new CI image build.
+  (`{public-slug}/v2`, `v3`, ...) and triggers a new CI image build.
 - You stay listed as the original author of the machine forever.
 
 ---
