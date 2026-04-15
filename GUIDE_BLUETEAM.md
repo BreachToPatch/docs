@@ -105,178 +105,216 @@ symptom on this version.
 
 ---
 
-## 6. Writing your patch
-
-A patch is a set of files placed inside your own folder:
-
+## 6. Understanding how patch validation works
+ 
+Before writing your patch, understand what happens when you submit:
+ 
 ```
-{machine-slug}/writeups/patch/{your-username}/
-├── writeup.md            ← required, use templates/writeup_patch.md
-├── docker-compose.yml    ← required, the patched service definition
-└── <any other files>     ← any other files you modified (Dockerfile, configs, source code, etc.)
+Your patched files (in writeups/patch/{username}/)
+        │
+        ▼
+CI clones your branch (private runner — you can't see this)
+        │
+        ▼
+CI injects a validation flag it controls via --build-arg FLAG_VALUE
+        │
+        ▼
+CI builds your Docker image with that flag written to /root/flag.txt
+        │
+        ▼
+CI replays the locked exploit.py against your patched container
+        │
+    ┌───┴───┐
+   exit 1  exit 0
+    │        │
+    ✅       ❌
+ Exploit   Exploit retrieved the injected flag
+ blocked   → your patch doesn't fix the root cause
 ```
-
-The CI rebuilds and starts the services using **your** `docker-compose.yml`
-and any files it references. Anything you don't include keeps its archived
-version.
-
-### Example: patching Bee-Path (CVE-2021-41773)
-
-The vulnerability comes from Apache 2.4.49's broken path normalization.
-Two valid approaches:
-
-1. **Upgrade Apache** — change the base image in `app/apache/Dockerfile` from
-   `httpd:2.4.49` to `httpd:2.4.51` or later. Include the modified `Dockerfile`
-   in your patch folder.
-2. **Disable mod_cgi** — the RCE part of the exploit needs `mod_cgi` enabled.
-   Comment out the `LoadModule cgi_module` line in `httpd.conf`. Note: this
-   downgrades functionality, so the SLA check must still pass.
-
-Both are valid as long as services stay UP and the exploit returns exit code 1.
-
+ 
+**Why you don't need to know the flag value:** The CI injects its own flag — you never see it. Your patch just needs to make CVE-2021-41773 unexploitable. If the exploit can't traverse to `/root/flag.txt`, it returns exit `1` regardless of what's in that file.
+ 
 ---
-
-## 7. Testing your patch locally
-
-Before opening a PR, verify your patch yourself.
-
-### Quick test (Docker only — what the CI does)
-
-From inside your patch folder:
-
-```bash
-cd {machine-slug}/writeups/patch/{your-username}
-docker compose up -d --build
+ 
+## 7. Preparing your patch
+ 
+### Step 1 — Get the source code
+ 
+The sanitized source code is in `machines-archive`:
+ 
 ```
-
-Wait for services to start (5 to 30 seconds), then check they respond:
-
-```bash
-curl http://localhost:80/    # should return HTTP 200 or 403
+https://github.com/BreachToPatch/machines-archive/tree/main/{machine-slug}-v{version}
 ```
-
-Now run the locked exploit against your patched version:
-
+ 
+Clone or download this folder. The flag value has been replaced with `FLAG{PLACEHOLDER}` — that's intentional.
+ 
+### Step 2 — Understand the vulnerability
+ 
+Read the locked exploit at:
+```
+https://github.com/BreachToPatch/machines-public/blob/main/{machine-slug}/exploit/exploit.py
+```
+ 
+For `vuln-apache-path-traversal`: the exploit uses CVE-2021-41773 to traverse outside the document root via URL-encoded dots (`%2e`), then executes arbitrary commands via `mod_cgi`. Two valid fixes:
+1. **Upgrade Apache** to 2.4.51 or later (fixes the path normalization bug)
+2. **Disable `mod_cgi`** (removes the RCE escalation vector)
+3. **Fix the `<Directory />` directive** (remove `Require all granted` on the root)
+Address the root cause — not just the specific payload.
+ 
+### Step 3 — Write your fix locally
+ 
+Edit the relevant files from `machines-archive`:
+- `app/apache/httpd.conf` — Apache configuration
+- `app/apache/Dockerfile` — base image version or module config
+- Any other file contributing to the vulnerability
+Test locally:
 ```bash
-TARGET_IP=localhost TARGET_PORT=80 \
-  python3 ../../../../{machine-slug}/exploit/exploit.py
+# Build with a test flag
+FLAG_VALUE="FLAG{test}" docker compose build --build-arg FLAG_VALUE="FLAG{test}"
+docker compose up -d
+ 
+# Check the service responds
+curl http://localhost:80/     # should return HTTP 200 or 403
+ 
+# Run the locked exploit against your patched version
+TARGET_IP=localhost TARGET_PORT=80 python3 ../../../exploit/exploit.py
 echo "Exit code: $?"
-```
-
-| Exit code | Meaning |
-|-----------|---------|
-| `1` | ✅ Vulnerability is patched. You're ready to submit. |
-| `0` | ❌ Exploit still works. Your patch is insufficient. |
-| `2` | ❌ Service unreachable. Your patch broke something. |
-
-Cleanup:
-
-```bash
+# Must be 1 (exploit blocked) — NOT 0 (exploit worked)
+ 
+# Cleanup
 docker compose down --volumes
 ```
-
-### Full test (Vagrant — closer to real player environment)
-
-Optional but recommended for complex patches. Modify the archived
-`docker-compose.yml` to point to your patched files, then `vagrant up` from
-the archive folder. Run the exploit against `192.168.56.10`.
-
+ 
 ---
-
-## 8. Submitting your patch
-
-### Step 1 — Fork machines-public
-
-If you haven't already, fork `https://github.com/BreachToPatch/machines-public`
-and clone it.
-
+ 
+## 8. Submission structure
+ 
+Your submission folder must follow this exact structure:
+ 
+```
+{machine-slug}/writeups/patch/{your-username}/
+├── writeup.md                ← required — explains root cause and fix
+├── docker-compose.yml        ← required — CI test compose file
+└── patch/                    ← required — your patched files, mirrors machine structure
+    └── app/
+        └── apache/
+            ├── Dockerfile    ← your patched Dockerfile (MUST have ARG FLAG_VALUE)
+            └── httpd.conf    ← your patched config (if you changed it)
+```
+ 
+Everything inside `patch/` is copied on top of the machine's current version folder when your patch is promoted. Only include files you actually modified.
+ 
+---
+ 
+## 8.1 Required docker-compose.yml format
+ 
+Your `docker-compose.yml` MUST pass `FLAG_VALUE` to your Dockerfile as a build arg.
+The CI sets this environment variable before running your compose file.
+ 
+```yaml
+services:
+  apache:
+    build:
+      context: ./patch/app/apache/
+      args:
+        FLAG_VALUE: ${FLAG_VALUE}   # reads from environment — DO NOT hardcode
+    ports:
+      - "80:80"
+    restart: unless-stopped
+```
+ 
+> **Do NOT** hardcode a flag value in your `docker-compose.yml`.
+> The CI injects its own flag. Your job is to block access to it, not predict it.
+ 
+---
+ 
+## 8.2 Required Dockerfile format
+ 
+Your `Dockerfile` inside `patch/` MUST:
+1. Accept `FLAG_VALUE` as a build arg
+2. Write it to `/root/flag.txt` with `chmod 400`
+```dockerfile
+FROM httpd:2.4.49   # or httpd:2.4.51 if upgrading
+ 
+# --- YOUR SECURITY FIX HERE ---
+# Example: copy a fixed httpd.conf
+COPY httpd.conf /usr/local/apache2/conf/httpd.conf
+ 
+# --- REQUIRED: flag injection pattern (do not remove) ---
+# The CI uses this to inject its validation flag.
+ARG FLAG_VALUE=FLAG{PLACEHOLDER}
+RUN mkdir -p /root \
+    && echo "$FLAG_VALUE" > /root/flag.txt \
+    && chmod 400 /root/flag.txt
+ 
+EXPOSE 80
+```
+ 
+> **Important:** You may modify anything in the Dockerfile — base image, configuration,
+> installed modules — as long as you keep the `ARG FLAG_VALUE` block.
+> Removing it will cause the CI to fail with a configuration error, not an acceptance.
+ 
+---
+ 
+## 9. Submitting your patch
+ 
+### Step 1 — Fork and clone machines-public
+ 
 ```bash
 git clone https://github.com/{your-username}/machines-public.git
 cd machines-public
 ```
-
+ 
 ### Step 2 — Create your branch
-
+ 
 ```bash
 git checkout -b patch/{your-github-username}/{machine-slug}
 ```
-
-Example:
-
-```bash
-git checkout -b patch/bob/vuln-apache-path-traversal
-```
-
-The CI rejects any branch that does not exactly match `patch/{username}/{machine-slug}`.
-
+ 
 ### Step 3 — Add your files
-
-```
-{machine-slug}/writeups/patch/{your-username}/
-├── writeup.md            ← your patch writeup
-├── docker-compose.yml    ← your patched service definition
-└── <any modified files>  ← e.g., Dockerfile, httpd.conf, app source files
-```
-
-You may **only** create files inside your own folder. The CI rejects PRs that
-touch anything outside `{machine-slug}/writeups/patch/{your-username}/`.
-
+ 
+Create the folder structure as described above inside `{machine-slug}/writeups/patch/{your-username}/`.
+ 
 ### Step 4 — Commit and push
-
+ 
 ```bash
 git add {machine-slug}/writeups/patch/{your-username}/
-git commit -m "patch: {machine-slug} by {your-username}"
+git commit -m "patch: {machine-slug} — fix CVE description"
 git push origin patch/{your-username}/{machine-slug}
 ```
-
+ 
 ### Step 5 — Open the Pull Request
-
-Open the PR on GitHub from your branch into `BreachToPatch/machines-public:main`.
-
+ 
+Open a PR from your branch into `BreachToPatch/machines-public:main`.
+ 
+The CI will:
+1. Check branch name, files, scope, and secrets (< 30 seconds)
+2. Post "validation in progress" 🕐
+3. Run the full test privately (~3 minutes): builds your image with the injected flag, replays the exploit
+4. Post the final result comment ✅ or ❌
 ---
-
-## 9. What the CI does to your patch
-
-In sequence:
-
-1. **Branch name check** — must be `patch/{username}/{machine-slug}`
-2. **Folder ownership check** — folder must match your GitHub username
-3. **Scope check** — PR must touch only files inside your own folder
-4. **Required files check** — `writeup.md` and `docker-compose.yml` must exist
-5. **Secret scan** — TruffleHog scans your patch for accidentally committed secrets
-6. **Build and start** — `docker compose up -d --build` from your folder
-7. **SLA check** — services must respond within 60 seconds
-8. **Regression test** — the locked `exploit/exploit.py` is replayed
-9. **Comment posted** — the result lands on your PR
-
-The four possible outcomes:
-
-| Outcome | Meaning |
-|---------|---------|
-| ✅ PATCH ACCEPTED | Exploit blocked + services UP. Maintainer reviews and merges. |
-| ❌ Vulnerability not fixed | Exploit still returns exit `0` — patch insufficient |
-| ❌ SLA Violation | Services stopped responding after applying the patch |
-| ⚠️ Validation Error | Unexpected CI error — a maintainer will investigate |
-
-Push a fix to the same branch — the CI reruns automatically.
-
----
-
-## 10. Scoring
-
-| Action | Points |
-|--------|--------|
-| Patch validated and merged | **75 pts** |
-| Writeup quality bonus (maintainer-awarded) | up to 25 pts |
-
-Earned badges:
-
-| Badge | How to earn it |
-|-------|---------------|
-| 🛡️ Defender | Get a patch validated |
-| 🏰 Fort Knox | Your patch resists 3 consecutive re-pwn attempts |
-
----
+ 
+## 10. What the CI checks
+ 
+```
+Structural checks (public CI):
+  ✓ Branch name: patch/{username}/{machine}
+  ✓ Folder name matches PR author
+  ✓ PR only touches your own folder
+  ✓ writeup.md present
+  ✓ docker-compose.yml present
+  ✓ patch/ subfolder present
+  ✓ locked exploit.py exists (machine was pwned)
+  ✓ No secrets accidentally committed (TruffleHog)
+ 
+Security test (private CI — invisible to players):
+  ✓ docker compose build --build-arg FLAG_VALUE={real_flag} succeeds
+  ✓ Service responds on port 80 (SLA)
+  ✓ Locked exploit.py returns exit 1 (exploit blocked)
+       If exit 0: hash of obtained flag verified against real flag
+       If hash matches → patch insufficient ❌
+       If hash mismatch → docker-compose misconfiguration ❌
+```
 
 ## 11. After your patch is merged
 
