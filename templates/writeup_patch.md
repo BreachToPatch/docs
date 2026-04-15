@@ -11,7 +11,7 @@
 
 One paragraph (2-4 sentences). What was the vulnerability, what is your fix, and why does it work?
 
-> Example: "Bee-Path v1.0 ships Apache 2.4.49, vulnerable to CVE-2021-41773 (path traversal + RCE via mod_cgi). My patch upgrades the base image to `httpd:2.4.51`, which contains the upstream fix for path normalization, neutralizing both the traversal and the RCE escalation."
+> Example: "Bee-Path v1 ships Apache 2.4.49, vulnerable to CVE-2021-41773 (path traversal + RCE via mod_cgi). My patch upgrades the base image to `httpd:2.4.51`, which contains the upstream fix for path normalization, neutralizing both the traversal and the RCE escalation."
 
 ---
 

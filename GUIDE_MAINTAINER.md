@@ -71,7 +71,7 @@ You do **not** need to do this manually. After merge, the locked exploit is on `
 4. If the patch is solid, merge.
 
 After merge:
-- `auto-tag.yml` creates the next version tag (e.g. `vuln-apache-path-traversal/v1.1`)
+- `auto-tag.yml` creates the next version tag (e.g. `vuln-apache-path-traversal/v2`)
 - You then perform the [post-patch release flow](#5-post-patch-release-flow)
 
 ---
@@ -118,7 +118,7 @@ vagrant package --output {machine-name}.box
 ```
 
 Upload `{machine-name}.box` as an asset on a new GitHub Release in
-`btop-sources/machines-sources` tagged `{machine-name}/v1.0`.
+`btop-sources/machines-sources` tagged `{machine-name}/v1`.
 
 > Boxes are large (200 MB to 2 GB). Use Git LFS only if absolutely necessary —
 > GitHub Releases handle files up to 2 GB without LFS, which is preferred.
@@ -169,16 +169,16 @@ In `btop-sources/machines-sources/{machine-name}/`:
 
 In `machines-public/{public-slug}/README.md`:
 - Update the **Flag Hash (SHA-256)** section with the new hash
-- Bump the version header (e.g. "Bee-Path (v1.1)")
+- Bump the version header (e.g. "Bee-Path (v2)")
 - Move status back to **🔴 Red Team Phase Active**
 - Update the **Download** link to the new Release
 
 ### Step 4 — Reset the locked exploit
 
 The locked `exploit/exploit.py` was the Red Teamer's First Blood exploit for
-v1.0. After a patch is merged, **it is now obsolete** — the new version is no
-longer vulnerable to it. Delete it (or move it to a `history/v1.0/` folder)
-so the machine is once again open for First Blood on v1.1.
+v1. After a patch is merged, **it is now obsolete** — the new version is no
+longer vulnerable to it. Delete it (or move it to a `history/v1/` folder)
+so the machine is once again open for First Blood on v2.
 
 ### Step 5 — Update the GitHub Secret
 
@@ -188,7 +188,7 @@ new flag value.
 ### Step 6 — Publish the new Vagrant box
 
 Same as [Step 3 of release flow](#step-3--publish-the-vagrant-box) — but tag
-`{machine-name}/v1.1`.
+`{machine-name}/v2`.
 
 ---
 
@@ -282,7 +282,7 @@ For solo work during early development, "Required reviewers" can stay at 0 — b
 | Someone submits a writeup with no real explanation | Close the PR with a polite comment pointing to the writeup template. Do not merge — the locked exploit can be rolled back if it was already locked by an unmerged PR (revert the auto-commit). |
 | Someone submits a patch that hardcodes blocking the exact CI exploit payload | Reject. Comment that the patch must address the root cause. If the player insists or repeats this on multiple machines, escalate to org Owner. |
 | Someone submits a backdoor in a patch | TruffleHog usually catches this. If you spot it manually, immediately close the PR, ban the user from the org, and write a short post-mortem in `docs/incidents/`. |
-| A player publishes a flag publicly to grief a fresh machine | Rotate the flag (Step 5 of post-patch release flow) and announce v1.0.1. Optionally ban the publisher. |
+| A player publishes a flag publicly to grief a fresh machine | Rotate the flag (Step 5 of post-patch release flow) and announce v2. Optionally ban the publisher. |
 | GitHub Action minutes exhaustion | Public repos get unlimited free minutes for public workflows. If we hit limits on private workflows in `machines-sources`, switch the build job to use `paths` filters or trigger only on tag push instead of every commit. |
 
 ---
